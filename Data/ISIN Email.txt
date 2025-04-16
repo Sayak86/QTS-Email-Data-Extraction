@@ -1,0 +1,24 @@
+from:	Some Bank <name@bank.com>
+to:	Sayak.Bhattacharjee@ubs.com
+date:	Feb 10, 2025, 6:59 AM
+subject:	Trade not Settled for CH-MG5GTBLX00
+mailed-by:	name@bank.com
+
+
+Hi,
+
+Reference to my last trade is
+
+USQA112009P
+
+Due to redemption of CH1207462693, we are expecting to receive 100 shares of FR0000121485 , value date 11/01/25, but it remains unsettled as of today.
+Kindly ensure your isntruction is in place to deliver the shares, facing our SSI as per the delivery instruction via MT599 ref no. ISCA19762234.
+Our account US/81278890 is die with a transfer.
+
+This is our message
+:35: US0009871235
+:F79: This is a sample message
+
+Regards,
+Axis Bank Ltd.
+Contact: (+41) 77890-123

@@ -1,0 +1,18 @@
+From:Lara.Bapist@Otherbank.com
+Sent: 9th September, 2024
+To:Custody-services@ubs.com
+
+1223-456 Transfer from 99999S1 to 66666S9 US912810QY73 US
+
+Good morning
+
+I tried to transfer above mentioned security from S1 to S9.
+It is an instruction via Fedwire, but I dont manage to push the instructions which settle.
+Last instructionbs were sent yesterday with our reference ref.PM/REC/111334/01 and PM/REC/8800765/01
+
+Could you please help me with this?
+
+
+Thanks
+Bapist
+Senior Ops Securities

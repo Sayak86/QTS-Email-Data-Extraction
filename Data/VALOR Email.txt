@@ -1,0 +1,14 @@
+from:	Some Bank <name@bank.com>
+to:	Sayak.Bhattacharjee@ubs.com
+date:	Feb 10, 2025, 6:59 AM
+subject:	Sensitive client 0290-11234.S1 Euro Isin - in EUR/023000000765S1
+mailed-by:	name@bank.com
+
+
+Hi,
+
+Can you please give me the update with ref. 9876402 . May we ask you to check instruction reference 530324111501469 (V:123009007) and let us know the status.
+Account used for the trade 001230988
+
+Regards,
+Axis Bank Ltd.

@@ -1,0 +1,23 @@
+from:	Axis Bank Alerts <alerts@axisbank.com>
+to:	SAKPAN.SAYAK@gmail.com
+date:	Feb 10, 2025, 6:59 AM
+subject:	Debit transaction alert for Axis Bank A/c
+mailed-by:	trans.axisbank.com
+signed-by:	axisbank.com
+
+Dear Sayak Bhattacharjee,
+
+Thank you for banking with us.
+
+We wish to inform you that your A/c no. XX6686 has been debited with INR 10000.00 on 10-02-2025 06:57:53 IST by ACH-DR-FIN INDIAN CLEARING.
+
+To check your available balance, please click here. 
+
+Please SMS BLOCKALL <Space> <Cust ID> to 919951860002, if the transaction has not been initiated by you.
+
+Should you wish to reach us, please call 18001035577.
+
+Always open to help you.
+
+Regards,
+Axis Bank Ltd.
