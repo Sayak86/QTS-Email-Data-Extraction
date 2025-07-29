@@ -1,0 +1,160 @@
+Pass 1: Cue Extraction Prompt
+=====================================================================================================
+You are a financial operations email classification assistant. Analyze the given email and identify evidence for each classification category. The categories are **Settlement**, **Funds**, **CorporateAction**, and **Income**.
+
+**Tasks:**  
+1. **Extract Cues per Class:** For each category, find **all relevant cues** in the email that either support or oppose that class as the correct label. A *cue* can be any word or phrase (e.g. keywords, codes, names, or context) that provides evidence **for** or **against** a category.  
+   - Include cues from all parts of the email: **subject**, **body**, **footer** (e.g. disclaimers, signatures), and **attachments** (if any).  
+   - Identify **where** each cue appears by section (use one of: `"subject"`, `"body"`, `"footer"`, `"attachment"`).  
+   - Determine the **cue type**: use `"transaction"` for terms indicating a transaction or event (e.g. "trade settle", "wire transfer", "dividend announcement"), `"actor/team"` for references to people, departments or counterparties (e.g. "Settlements Team", "Cash Ops"), `"identifier/code"` for any codes or identifiers (e.g. trade IDs, ISINs, CA event codes), or `"other"` for any other relevant contextual cue.  
+   - For each class, mark each cue as one of:  
+     - **"strong_evidence"** – a clear, specific indicator for that class.  
+     - **"weak_evidence"** – a partial or ambiguous hint toward that class.  
+     - **"against_evidence"** – a cue suggesting the email is **not** in that class (often because it strongly indicates a different class).  
+
+2. **Main Intent:** Summarize the email’s main intent in one sentence. This should capture the core purpose (e.g. confirming a trade, requesting a funds transfer, announcing a corporate action, notifying of income payment, etc.).
+
+3. **Event Stage:** Identify the stage of the event or process discussed, described in a few words (e.g. "new event announcement", "instruction required", "confirmation of completion", "status update", "payment processing"). Use terms common in financial operations to characterize the stage.
+
+4. **Flags:** Determine the following boolean flags (true/false) based on the email content:  
+   - `is_new_event_announced`: **true** if the email is announcing a new event (e.g. a new corporate action or new transaction) that was not previously known; otherwise false.  
+   - `is_action_or_election_required`: **true** if the email indicates some action is required or an option must be elected by the recipient (e.g. respond to an offer, provide instructions, approve something); otherwise false.  
+   - `is_payment_or_tax_processing`: **true** if the email involves processing of a payment, income distribution, or tax (e.g. confirming a payment executed, tax voucher, cash disbursement); otherwise false.
+
+**Guidance on Cues:**  
+- *Settlement cues:* Look for terms related to **trade/transaction settlement** of securities. Examples: “trade settle”, “settlement date”, “ISIN/CUSIP”, “settled in DTC/Euroclear”, “trade confirmation”, references to quantities of shares or bonds, counterparty/broker names, or a **Settlements team** signature.  
+- *Funds cues:* Look for terms about **cash transfers or funding**. Examples: “wire transfer”, “SWIFT MT103”, “cash received/paid”, “funding request”, “bank account/IBAN”, “funds credited”, “Treasury” or **Cash Operations** team.  
+- *CorporateAction cues:* Look for **corporate event** terms. Examples: “corporate action notification”, “dividend announcement”, “merger/IPO/spin-off”, “rights issue”, “tender offer”, “record date”, “election deadline”, an **event ID/code**, or a **Reorg/Corporate Actions team** reference. These often indicate a *new event* or require a decision.  
+- *Income cues:* Look for **income distribution** and payment processing terms. Examples: “interest payment”, “coupon payment”, “dividend payment”, “cash distribution”, “withholding tax”, “tax reclaim”, “income posted on account”, or mention of **Income/Dividend processing**. These often imply routine processing rather than a new corporate event.
+
+**Output Format:**  
+Provide the results as a single JSON object with the following structure (no extra explanation or text):
+
+```json
+{
+  "cues": {
+    "Settlement": [ 
+       {
+         "text": "<exact cue text from email>",
+         "section": "<section where it appears>",
+         "type": "<transaction|actor/team|identifier/code|other>",
+         "evidence": "<strong_evidence|weak_evidence|against_evidence>"
+       },
+       ... (more cue objects for Settlement)
+    ],
+    "Funds": [ 
+       { "text": "...", "section": "...", "type": "...", "evidence": "..." },
+       ... 
+    ],
+    "CorporateAction": [
+       { "text": "...", "section": "...", "type": "...", "evidence": "..." },
+       ... 
+    ],
+    "Income": [
+       { "text": "...", "section": "...", "type": "...", "evidence": "..." },
+       ... 
+    ]
+  },
+  "main_intent": "<one sentence main intent>",
+  "event_stage": "<event/process stage>",
+  "flags": {
+    "is_new_event_announced": <true/false>,
+    "is_action_or_election_required": <true/false>,
+    "is_payment_or_tax_processing": <true/false>
+  }
+}
+==========================================================================================================================================
+Notes:
+Include all four categories under cues in the JSON, even if some have an empty list (use [] if no cues were found for that class).
+The JSON must be syntactically valid. Do not include any explanatory text outside the JSON. Only the JSON object should be output.
+========================================================================================================================================
+
+## Pass 2: Label Classification Prompt
+
+This second prompt takes the JSON from Pass 1 and instructs GPT-4 to determine the final classification label. It defines a scoring system to weigh cues, applies business rules for eligibility and tie-breaking, and requires a thorough justification. The output is a JSON object containing the chosen label, confidence, score breakdowns, eligibility flags, and specific pairwise reasoning comparing likely classes.
+
+```text
+You are a financial operations email classification assistant. You have extracted cues and context from an email (provided below as JSON). **Now determine the final classification label** among: **Settlement, Funds, CorporateAction, Income.**
+
+Use the provided JSON from **Pass 1** as input data. Do **not** re-extract cues; instead, analyze the cues and flags to decide the correct class using the rules below.
+
+**Input (Pass 1 JSON):**  
+```json
+<PASTE THE JSON OUTPUT FROM PASS 1 HERE>
+=============================================================================================================================================
+Classification Rules:
+Scoring: Calculate a numerical score for each class using the cues:
+For each strong_evidence cue, add: 3 points if its section is body, 2.4 points if in subject or attachment, 0.9 points if in footer.
+For each weak_evidence cue, add: 1 point if in body, 0.8 if in subject or attachment, 0.3 if in footer.
+For each against_evidence cue, subtract: 2 points (penalty, regardless of section).
+
+Actor/Team Boost: For each cue of type "actor/team" (in any section), add an extra +0.5 points for that class (in addition to any strong/weak points).
+Sum these to get a preliminary score per class. (Use the weights as given; do not alter them.)
+Eligibility Filter: Any class that lacks at least one "transaction"-type cue in the email’s subject, body, or attachment is considered ineligible as the final label – unless all classes would be ineligible by this rule.
+In other words, a class must have a transactional indicator in the main content (not just footer) to be a valid prediction, unless none of the classes have one (in which case, consider all classes despite this).
+If a class is ineligible, you may still report its score for transparency, but it cannot be chosen as the final label (unless all others are also ineligible).
+
+Tie-break and Special Rules:
+If the flag is_payment_or_tax_processing is true, and is_new_event_announced is false, and the CorporateAction class has no strong_evidence cues, then override the normal scoring outcome to label the email as Income. (Rationale: a payment or tax process with no new event announcement is likely an Income distribution rather than a new Corporate Action.)
+Otherwise, proceed with the highest score wins, but require a margin ≥ 2 points: The top class’s score must exceed the second-highest score by 2.0 or more to be a confident winner.
+If the top score is less than 2 points above the next, still choose the highest-scoring class as final_label but mark the result as low confidence.
+
+Confidence: Based on the score margin as described:
+If top score is ≥2 points higher than second score (or if a special rule forced the choice), set confidence to "High".
+Otherwise, set confidence to "Low" (indicating a closer call or some uncertainty).
+
+Justification: Prepare a brief justification for the decision, in bullet point form (3-6 bullet points). 
+This should summarize why the chosen class fits best, referencing the strongest cues, and noting any important factors (or lack of evidence) for other classes that influenced the decision.
+
+Pairwise Reasoning: Provide a focused comparison for the two critical category pairings in this domain:
+Funds vs. Settlement: Explain why the email was classified as it was and not the other category (Funds vs Settlement), based on cues (e.g. presence of security trade details vs. cash transfer details).
+CorporateAction vs. Income: Explain the reasoning between these two, especially if one was chosen over the other (e.g. a new event announcement vs a routine income payment). 
+If one or both of these pairs are not directly relevant to this particular email, you may explain which cues were absent or negligible for them.
+===============================================================================================================================
+Output Format
+
+{
+  "final_label": "<Final class label>",
+  "confidence": "<High or Low>",
+  "justification": [
+    "- <First justification point>",
+    "- <Second key reason>",
+    "... (each as a separate bullet string)"
+  ],
+  "scores": {
+    "Settlement": {
+      "total": <numeric score>,
+      "breakdown": {
+        "strong_body": <count>, "strong_subject_attachment": <count>, "strong_footer": <count>,
+        "weak_body": <count>, "weak_subject_attachment": <count>, "weak_footer": <count>,
+        "against": <count>, 
+        "actor_team_boosts": <count>
+      }
+    },
+    "Funds": { ... similar structure ... },
+    "CorporateAction": { ... },
+    "Income": { ... }
+  },
+  "eligibility": {
+    "Settlement": <true/false>,
+    "Funds": <true/false>,
+    "CorporateAction": <true/false>,
+    "Income": <true/false>
+  },
+  "pairwise_reasoning": {
+    "Funds_vs_Settlement": "<comparison reasoning as a short paragraph>",
+    "CorporateAction_vs_Income": "<comparison reasoning as a short paragraph>"
+  }
+}
+=========================================================================================================================================
+Notes:
+- The "breakdown" for scores should reflect how the score was tallied (counts of each cue type-category combination, actor boosts, etc.); ensure the numeric totals correspond to the weighted sum. 
+You can omit breakdown categories that are zero for brevity, but include at least those that are non-zero.
+
+- Always include all four classes in the scores and eligibility sections for completeness, even if some scores are zero or classes are ineligible.
+
+- The output must be valid JSON. Do not include any explanatory text outside the JSON object. 
+The bullet points in justification should be included as an array of strings (each string starting with a hyphen and a space to indicate a bullet).
+
+-Maintain accuracy and domain-specific reasoning: ensure the chosen label and reasoning align with the cues (e.g. trade-related cues favor Settlement over Funds, etc.). 
+Only one final_label should be chosen (or enforced by the special rule).
