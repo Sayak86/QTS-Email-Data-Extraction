@@ -71,16 +71,104 @@ The JSON must be syntactically valid. Do not include any explanatory text outsid
 
 ## Pass 2: Label Classification Prompt
 
-This second prompt takes the JSON from Pass 1 and instructs GPT-4 to determine the final classification label. It defines a scoring system to weigh cues, applies business rules for eligibility and tie-breaking, and requires a thorough justification. The output is a JSON object containing the chosen label, confidence, score breakdowns, eligibility flags, and specific pairwise reasoning comparing likely classes.
+You are a financial-operations email classifier. Use the JSON from Pass 1 (below) to pick ONE final class: Settlement, Funds, CorporateAction, or Income.
 
-```text
-You are a financial operations email classification assistant. You have extracted cues and context from an email (provided below as JSON). **Now determine the final classification label** among: **Settlement, Funds, CorporateAction, Income.**
+---------------------------------
+PASS 1 JSON
+<<<PASS1_JSON>>
+{PASS1_JSON}
+<<<END PASS1_JSON>>
+---------------------------------
 
-Use the provided JSON from **Pass 1** as input data. Do **not** re-extract cues; instead, analyze the cues and flags to decide the correct class using the rules below.
+### SCORING RULES
+For each class, compute a weighted score from the cues:
 
-**Input (Pass 1 JSON):**  
-```json
-<PASTE THE JSON OUTPUT FROM PASS 1 HERE>
+Section weights:
+- body = 1.0
+- subject = 0.8
+- attachment = 0.8
+- footer = 0.3
+
+Points per evidence strength:
+- strong_evidence: +3 * section_weight
+- weak_evidence:   +1 * section_weight
+- against_evidence: −2 (penalty, section_weight ignored)
+
+Actor/team boost:
+- For each cue where "type" == "actor/team" and that cue supports the class (strong or weak), add +0.5.
+
+Total score = sum of all these contributions.
+
+### ELIGIBILITY RULE
+A class is **eligible** only if it has ≥1 cue with `"type":"transaction"` from **subject/body/attachment** (not only footer).  
+If no class meets this, then all classes remain eligible.
+
+### SPECIAL GATE (Income vs CorporateAction)
+If ALL of the following are true:
+- flags.is_payment_or_tax_processing == true
+- flags.is_new_event_announced == false
+- CorporateAction has 0 strong_evidence cues
+→ Immediately choose Income (override scores).
+
+### DECISION & CONFIDENCE
+- Otherwise, choose the eligible class with the highest total score.
+- If the top score minus the second score ≥ 2.0 → confidence = high
+  else → confidence = low
+
+Confidence must be a decimal between 0 and 1:
+- high  → 0.80 to 0.95 (pick 2 decimals)
+- low   → 0.55 to 0.79  (pick 2 decimals)
+
+### PAIRWISE REASONING (MANDATORY)
+Provide short comparisons:
+- "Funds_vs_Settlement"  – why winner fits better than the other
+- "CA_vs_Income"         – why winner fits better than the other
+
+(If one pair is irrelevant, briefly state why.)
+
+### OUTPUT (STRICT JSON ONLY)
+
+{
+  "final_label": "Settlement" | "Funds" | "CorporateAction" | "Income",
+  "confidence": 0.00,
+  "justification": [
+    "- bullet 1",
+    "- bullet 2",
+    "- bullet 3"
+  ],
+  "scores": {
+    "Settlement": {
+      "total": 0.0,
+      "breakdown": {
+        "strong_body": 0, "strong_subject_attachment": 0, "strong_footer": 0,
+        "weak_body": 0, "weak_subject_attachment": 0, "weak_footer": 0,
+        "against": 0,
+        "actor_team_boosts": 0
+      }
+    },
+    "Funds": { ...same keys... },
+    "CorporateAction": { ...same keys... },
+    "Income": { ...same keys... }
+  },
+  "eligibility": {
+    "Settlement": true/false,
+    "Funds": true/false,
+    "CorporateAction": true/false,
+    "Income": true/false
+  },
+  "pairwise_reasoning": {
+    "Funds_vs_Settlement": "short paragraph",
+    "CA_vs_Income": "short paragraph"
+  }
+}
+
+Rules:
+- Include ALL classes in scores & eligibility even if zero.
+- Numeric counts in breakdown are integers; totals are floats.
+- Output ONLY the JSON object. No extra text.
+
+
+
 =============================================================================================================================================
 Classification Rules:
 Scoring: Calculate a numerical score for each class using the cues:
